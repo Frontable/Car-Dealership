@@ -8,10 +8,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PISTACHE REQUIRED IMPORTED_TARGET libpistache)
 
-add_executable(CarDealership src/main.cpp
+file(GLOB_RECURSE SOURCE src/*.cpp src/*.h)
+
+add_executable(CarDealership ${SOURCE}
 
 )
 
-target_include_directories(CarDealership PRIVATE src)
+target_include_directories(CarDealership PRIVATE src src/controllers src/models src/services src/repositories)
 
 target_link_libraries(CarDealership PRIVATE PkgConfig::PISTACHE)
