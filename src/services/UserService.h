@@ -19,10 +19,10 @@ class UserService
 
     bool remove(int id);
 
-    std::vector<User>& getAll();
+    std::vector<User> getAll();
 
-    User* getById(int id);
+    std::optional<User> getById(int id);
 
-    User* getByEmail(const std::string& email);
+    std::optional<User> getByEmail(const std::string& email);
 
 };

@@ -24,31 +24,19 @@ bool UserService::remove(int id)
     return repository.remove(id);
 }
 
-std::vector<User>& UserService::getAll()
+std::vector<User> UserService::getAll()
 {
     return repository.getAll();
 }
 
-User* UserService::getById(int id)
+std::optional<User> UserService::getById(int id)
 {
-    User* user = repository.getById(id);
-    if(user == nullptr)
-    {
-        throw std::invalid_argument("User with this id doesn't exist");
-    }
-
-    return user;
+    return repository.getById(id);
 }
 
-User* UserService::getByEmail(const std::string& email)
+std::optional<User> UserService::getByEmail(const std::string& email)
 {
-    User* user = repository.getByEmail(email);
-    if(user == nullptr)
-    {
-        throw std::invalid_argument("User with this email doesn't exist");
-    }
-
-    return user;
+    return repository.getByEmail(email);
 }
 
 void UserService::validateUser(const User& user)

@@ -6,6 +6,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <postgresql/libpq-fe.h>
+
+#include "Database.h"
+
 #include "CarRepository.h"
 #include "CarService.h"
 #include "CarController.h"
@@ -18,6 +22,8 @@ using namespace Pistache;
 
 int main()
 {
+    Database database;
+
     Http::Endpoint endpoint(Address(Ipv4::any(), Port(9080)));
     Rest::Router router;
 
@@ -26,7 +32,7 @@ int main()
     CarController carController(carService);
     carController.registerRoutes(router);
 
-    UserRepository userRepository;
+    UserRepository userRepository(database);
     UserService userService(userRepository);
     UserController userController(userService);
     userController.registerRoutes(router);

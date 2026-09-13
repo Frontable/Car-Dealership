@@ -75,68 +75,139 @@ void UserController::registerRoutes(Pistache::Rest::Router& router)
     );
 }
 
-pistacheResult UserController::add(const Pistache::Rest::Request& request,
-        Pistache::Http::ResponseWriter response)
+pistacheResult UserController::add(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter response)
 {
     try
     {
-        std::string body = request.body();
-        nlohmann::json j = nlohmann::json::parse(body);
+        auto body = nlohmann::json::parse(request.body());
+
         User user;
-        user.name = j.at("name").get<std::string>();
-        user.email = j.at("email").get<std::string>();
-        user.password = j.at("password").get<std::string>();
-        user.role = j.at("role").get<std::string>();
+
+        user.name = body.at("name");
+        user.email = body.at("email");
+        user.password = body.at("password");
+        user.role = body.at("role");
 
         User newUser = service.add(user);
-        nlohmann::json newUserJson;
-        userToJson(newUserJson, newUser);
 
-        response.send(Pistache::Http::Code::Ok, newUserJson.dump(), MIME(Application, Json));
-        return Pistache::Rest::Route::Result::Ok;     
+        nlohmann::json j;
+        userToJson(j, newUser);
 
+        response.send(
+            Pistache::Http::Code::Created,
+            j.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
     }
-    catch(const std::invalid_argument& e)
+    catch (const std::invalid_argument& e)
     {
-        nlohmann::json error = {{"error", e.what()}};
-        response.send(Pistache::Http::Code::Bad_Request, error.dump(), MIME(Application, Json));
-        return Pistache::Rest::Route::Result::Ok; 
+        nlohmann::json error = {
+            {"error", e.what()}
+        };
+
+        response.send(
+            Pistache::Http::Code::Bad_Request,
+            error.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
     }
-    
+    catch (const std::runtime_error& e)
+    {
+        nlohmann::json error = {
+            {"error", e.what()}
+        };
+
+        response.send(
+            Pistache::Http::Code::Internal_Server_Error,
+            error.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
+    }
 }
 
-pistacheResult UserController::update(const Pistache::Rest::Request& request,
-        Pistache::Http::ResponseWriter response)
+pistacheResult UserController::update(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter response)
 {
     try
     {
         int id = std::stoi(request.param(":id").as<std::string>());
 
-        std::string body = request.body();
-        nlohmann::json j = nlohmann::json::parse(body);
+        auto body = nlohmann::json::parse(request.body());
 
-        User updatedUser;
-        updatedUser.id = id;
-        updatedUser.name = j.at("name").get<std::string>();
-        updatedUser.email = j.at("email").get<std::string>();
-        updatedUser.password = j.at("password").get<std::string>();
-        updatedUser.role = j.at("role").get<std::string>();
+        User user;
 
-        service.update(id, updatedUser);
+        user.name = body.at("name");
+        user.email = body.at("email");
+        user.password = body.at("password");
+        user.role = body.at("role");
 
-        nlohmann::json updatedUserJson;
-        userToJson(updatedUserJson, updatedUser);
+        bool updated = service.update(id, user);
 
-        response.send(Pistache::Http::Code::Ok, updatedUserJson.dump(), MIME(Application, Json));
-        return Pistache::Rest::Route::Result::Ok;     
+        if (!updated)
+        {
+            nlohmann::json error = {
+                {"error", "User with this id doesn't exist"}
+            };
 
+            response.send(
+                Pistache::Http::Code::Not_Found,
+                error.dump(),
+                MIME(Application, Json)
+            );
+
+            return Pistache::Rest::Route::Result::Ok;
+        }
+
+        std::optional<User> updatedUser = service.getById(id);
+
+        nlohmann::json j;
+        userToJson(j, *updatedUser);
+
+        response.send(
+            Pistache::Http::Code::Ok,
+            j.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
     }
-    catch(const std::invalid_argument& e)
+    catch (const std::invalid_argument& e)
     {
-        nlohmann::json error = {{"error", e.what()}};
-        response.send(Pistache::Http::Code::Bad_Request, error.dump(), MIME(Application, Json));
-        return Pistache::Rest::Route::Result::Ok; 
-    }    
+        nlohmann::json error = {
+            {"error", "Invalid user id"}
+        };
+
+        response.send(
+            Pistache::Http::Code::Bad_Request,
+            error.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
+    }
+    catch (const std::runtime_error& e)
+    {
+        nlohmann::json error = {
+            {"error", e.what()}
+        };
+
+        response.send(
+            Pistache::Http::Code::Internal_Server_Error,
+            error.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
+    }
 }
 
 pistacheResult UserController::remove(const Pistache::Rest::Request& request,
@@ -145,7 +216,7 @@ pistacheResult UserController::remove(const Pistache::Rest::Request& request,
     try
     {
         int id = std::stoi(request.param(":id").as<std::string>());
-        User* user = service.getById(id);
+        std::optional<User> user = service.getById(id);
         User removedUser;
         removedUser.id = id;
         removedUser.name = user->name;
@@ -153,7 +224,21 @@ pistacheResult UserController::remove(const Pistache::Rest::Request& request,
         removedUser.password = "";
         removedUser.role = user->role;
 
-        service.remove(id);
+        bool remove = service.remove(id);
+        if (!remove)
+        {
+            nlohmann::json error = {
+                {"error", "User with this id doesn't exist"}
+            };
+
+            response.send(
+                Pistache::Http::Code::Not_Found,
+                error.dump(),
+                MIME(Application, Json)
+            );
+
+            return Pistache::Rest::Route::Result::Ok;
+        }
 
         nlohmann::json removedUserJson;
         userToJson(removedUserJson, removedUser);
@@ -175,16 +260,16 @@ pistacheResult UserController::getAll(const Pistache::Rest::Request& request,
 {
     try
     {
-        std::vector<User>& users = service.getAll();
+        std::vector<User> users = service.getAll();
         nlohmann::json j;
 
         for(auto& user : users)
         {
             userToJson(j, user);
-        };
+         };
 
-        response.send(Pistache::Http::Code::Ok, j.dump(), MIME(Application, Json));
-        return Pistache::Rest::Route::Result::Ok;     
+         response.send(Pistache::Http::Code::Ok, j.dump(), MIME(Application, Json));
+         return Pistache::Rest::Route::Result::Ok;     
 
     }
     catch(const std::exception& e)
@@ -196,28 +281,70 @@ pistacheResult UserController::getAll(const Pistache::Rest::Request& request,
     
 }
 
-pistacheResult UserController::getById(const Pistache::Rest::Request& request,
-        Pistache::Http::ResponseWriter response)
+pistacheResult UserController::getById(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter response)
 {
     try
     {
         int id = std::stoi(request.param(":id").as<std::string>());
 
-        User* user = service.getById(id);
+        std::optional<User> user = service.getById(id);
+
+        if (!user.has_value())
+        {
+            nlohmann::json error = {
+                {"error", "User with this id doesn't exist"}
+            };
+
+            response.send(
+                Pistache::Http::Code::Not_Found,
+                error.dump(),
+                MIME(Application, Json)
+            );
+
+            return Pistache::Rest::Route::Result::Ok;
+        }
 
         nlohmann::json j;
         userToJson(j, *user);
 
-        response.send(Pistache::Http::Code::Ok, j.dump(), MIME(Application, Json));
-        return Pistache::Rest::Route::Result::Ok; 
+        response.send(
+            Pistache::Http::Code::Ok,
+            j.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
     }
-    catch(const std::invalid_argument& e)
+    catch (const std::invalid_argument& e)
     {
-        nlohmann::json error = {{"error", e.what()}};
-        response.send(Pistache::Http::Code::Not_Found, error.dump(), MIME(Application, Json));
-        return Pistache::Rest::Route::Result::Ok; 
+        nlohmann::json error = {
+            {"error", e.what()}
+        };
+
+        response.send(
+            Pistache::Http::Code::Not_Found,
+            error.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
     }
-    
+    catch (const std::runtime_error& e)
+    {
+        nlohmann::json error = {
+            {"error", e.what()}
+        };
+
+        response.send(
+            Pistache::Http::Code::Internal_Server_Error,
+            error.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
+    }
 }
 
 pistacheResult UserController::getByEmail(const Pistache::Rest::Request& request,
@@ -227,7 +354,22 @@ pistacheResult UserController::getByEmail(const Pistache::Rest::Request& request
     {
         std::string email = request.param(":email").as<std::string>();
 
-        User* user = service.getByEmail(email);
+        std::optional user = service.getByEmail(email);
+
+        if(!user.has_value())
+        {
+            nlohmann::json error = {
+                {"error", "User with this id doesn't exist"}
+            };
+
+            response.send(
+                Pistache::Http::Code::Not_Found,
+                error.dump(),
+                MIME(Application, Json)
+            );
+
+            return Pistache::Rest::Route::Result::Ok;
+        }
 
         nlohmann::json j;
         userToJson(j, *user);
@@ -240,6 +382,20 @@ pistacheResult UserController::getByEmail(const Pistache::Rest::Request& request
         nlohmann::json error = {{"error", e.what()}};
         response.send(Pistache::Http::Code::Not_Found, error.dump(), MIME(Application, Json));
         return Pistache::Rest::Route::Result::Ok; 
+    }
+    catch (const std::runtime_error& e)
+    {
+        nlohmann::json error = {
+            {"error", e.what()}
+        };
+
+        response.send(
+            Pistache::Http::Code::Internal_Server_Error,
+            error.dump(),
+            MIME(Application, Json)
+        );
+
+        return Pistache::Rest::Route::Result::Ok;
     }
 }
 

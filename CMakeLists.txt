@@ -14,6 +14,7 @@ add_executable(CarDealership ${SOURCE}
 
 )
 
-target_include_directories(CarDealership PRIVATE src src/controllers src/models src/services src/repositories)
+target_include_directories(CarDealership PRIVATE src src/controllers src/models 
+            src/services src/repositories src/Database)
 
-target_link_libraries(CarDealership PRIVATE PkgConfig::PISTACHE)
+target_link_libraries(CarDealership PRIVATE PkgConfig::PISTACHE pq)

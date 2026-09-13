@@ -1,16 +1,17 @@
 #pragma once
 #include <vector>
+#include <optional>
 
 #include "User.h"
+#include "Database.h"
 
 class UserRepository
 {
     private:
-    std::vector<User> m_Users;
-    int m_nextId;
+    Database& m_dataBase;
 
     public:
-    UserRepository();
+    UserRepository(Database& database);
 
     User add(const User& user);
 
@@ -18,10 +19,10 @@ class UserRepository
     
     bool remove(int id);
 
-    std::vector<User>& getAll();
+    std::vector<User> getAll();
 
-    User* getById(int it);
+    std::optional<User> getById(int it);
 
-    User* getByEmail(const std::string& email);
+    std::optional<User> getByEmail(const std::string& email);
 
 };
