@@ -9,6 +9,8 @@ class CarService
     private:
     CarRepository& repository;
 
+    void validateCar(const Car& car);
+    
     public:
     CarService(CarRepository& repository);
 

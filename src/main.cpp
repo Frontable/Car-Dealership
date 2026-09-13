@@ -10,6 +10,10 @@
 #include "CarService.h"
 #include "CarController.h"
 
+#include "UserRepository.h"
+#include "UserService.h"
+#include "UserController.h"
+
 using namespace Pistache;
 
 int main()
@@ -21,6 +25,11 @@ int main()
     CarService carService(carRepository);
     CarController carController(carService);
     carController.registerRoutes(router);
+
+    UserRepository userRepository;
+    UserService userService(userRepository);
+    UserController userController(userService);
+    userController.registerRoutes(router);
 
 
     endpoint.init(Http::Endpoint::options().threads(1));

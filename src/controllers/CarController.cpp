@@ -1,5 +1,6 @@
 #include "CarController.h"
 #include <string>
+#include <stdexcept>
 
 
 CarController::CarController(CarService& service)
@@ -69,27 +70,42 @@ pistacheResult CarController::add(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter response)
 {
-    std::string body = request.body();
+    try
+    {
+        std::string body = request.body();
 
-    nlohmann::json b = nlohmann::json::parse(body);
+        nlohmann::json b = nlohmann::json::parse(body);
 
-    Car newCar;
+        Car newCar;
 
-    newCar.brand = b.at("brand").get<std::string>();
-    newCar.model = b.at("model").get<std::string>();
-    newCar.year = b.at("year").get<int>();
-    newCar.price = b.at("price").get<double>();
+        newCar.brand = b.at("brand").get<std::string>();
+        newCar.model = b.at("model").get<std::string>();
+        newCar.year = b.at("year").get<int>();
+        newCar.price = b.at("price").get<double>();
 
-    Car createdCar = service.add(newCar);
+        Car createdCar = service.add(newCar);
 
-    nlohmann::json json;
-    carToJson(json, createdCar);
+        nlohmann::json json;
+        carToJson(json, createdCar);
 
-    response.send(
-        Pistache::Http::Code::Created,
-        json.dump(),
-        MIME(Application, Json)
-    );
+        response.send(
+            Pistache::Http::Code::Created,
+            json.dump(),
+            MIME(Application, Json)
+        );
+    }
+    catch (const std::invalid_argument& e)
+    {
+        nlohmann::json error = {
+            {"error", e.what()}
+        };
+
+        response.send(
+            Pistache::Http::Code::Bad_Request,
+            error.dump(),
+            MIME(Application, Json)
+        );
+    }
 
     return Pistache::Rest::Route::Result::Ok;
 }
@@ -144,50 +160,64 @@ pistacheResult CarController::update(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter response)
 {
-    int id = std::stoi(
-        request.param(":id").as<std::string>()
-    );
+    try
+    {
+        int id = std::stoi(
+            request.param(":id").as<std::string>()
+        );
 
-    Car* car = service.getById(id);
+        Car* car = service.getById(id);
 
-    if (car == nullptr)
+        if (car == nullptr)
+        {
+            nlohmann::json error = {
+                {"error", "car not found!"}
+            };
+
+            response.send(
+                Pistache::Http::Code::Not_Found,
+                error.dump(),
+                MIME(Application, Json)
+            );
+
+            return Pistache::Rest::Route::Result::Ok;
+        }
+
+        std::string body = request.body();
+
+        nlohmann::json b = nlohmann::json::parse(body);
+
+        Car updatedCar;
+
+        updatedCar.id = id;
+        updatedCar.brand = b.at("brand").get<std::string>();
+        updatedCar.model = b.at("model").get<std::string>();
+        updatedCar.year = b.at("year").get<int>();
+        updatedCar.price = b.at("price").get<double>();
+
+        service.update(id, updatedCar);
+
+        nlohmann::json json;
+        carToJson(json, updatedCar);
+
+        response.send(
+            Pistache::Http::Code::Ok,
+            json.dump(),
+            MIME(Application, Json)
+        );
+    }
+    catch (const std::invalid_argument& e)
     {
         nlohmann::json error = {
-            {"error", "car not found!"}
+            {"error", e.what()}
         };
 
         response.send(
-            Pistache::Http::Code::Not_Found,
+            Pistache::Http::Code::Bad_Request,
             error.dump(),
             MIME(Application, Json)
         );
-
-        return Pistache::Rest::Route::Result::Ok;
     }
-
-    std::string body = request.body();
-
-    nlohmann::json b = nlohmann::json::parse(body);
-
-    Car updatedCar;
-
-    updatedCar.id = id;
-    updatedCar.brand = b.at("brand").get<std::string>();
-    updatedCar.model = b.at("model").get<std::string>();
-    updatedCar.year = b.at("year").get<int>();
-    updatedCar.price = b.at("price").get<double>();
-
-    service.update(id, updatedCar);
-
-    nlohmann::json newCar;
-
-    carToJson(newCar, updatedCar);
-
-    response.send(
-        Pistache::Http::Code::Ok,
-        newCar.dump(),
-        MIME(Application, Json)
-    );
 
     return Pistache::Rest::Route::Result::Ok;
 }
